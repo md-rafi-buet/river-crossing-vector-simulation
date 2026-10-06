@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>River Crossing · Vector Addition</title>
+  <meta name="description" content="Interactive 3D simulation of vector addition and relative velocity: a boat crossing a flowing river.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ================================================================ Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M6 30 L20 10" stroke="#ff9a1f" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M20 10 L33 10" stroke="#38d6ff" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M6 30 L33 10" stroke="#ff4f9a" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="6" cy="30" r="3" fill="#fff"/>
+      </svg>
+      <div>
+        <h1>River Crossing</h1>
+        <p>Vector addition &amp; relative velocity</p>
+      </div>
+    </div>
+    <nav class="topbar-actions" aria-label="Guided modes">
+      <button id="btn-learning" class="btn btn-mode" aria-pressed="false" title="Step-by-step explanation">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 1 9l11 6 9-4.9V17h2V9L12 3zm-7 10.2V17c0 1.7 3.1 4 7 4s7-2.3 7-4v-3.8l-7 3.8-7-3.8z"/></svg>
+        <span>Learning Mode</span>
+      </button>
+      <button id="btn-explain" class="btn btn-mode" title="Slow-motion construction of the vector sum">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 12 4l1.8.9L5.8 21z M12 4h8v2h-8z M4 20 20 5l1.4 1.4L5.4 21.4z" /></svg>
+        <span>Explain Vector Addition</span>
+      </button>
+      <button id="btn-predict" class="btn btn-mode" title="Guess the landing point, then test it">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>
+        <span>Predict Landing</span>
+      </button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <!-- ================================================================ 3D viewport -->
+    <section class="viewport" id="viewport" aria-label="3D river simulation">
+      <div id="scene-host" class="scene-host"></div>
+
+      <!-- Real-time information -->
+      <div class="hud hud-info glass" id="hud-info">
+        <div class="hud-head">
+          <span class="hud-title">Real-time data</span>
+          <span class="status-pill" id="hud-status" data-status="ready">Ready</span>
+        </div>
+        <dl class="hud-grid">
+          <dt>Simulation time</dt><dd id="hud-time">0.00 s</dd>
+          <dt>Distance across</dt><dd id="hud-across">0.0 m</dd>
+          <dt id="hud-down-label">Downstream displacement</dt><dd id="hud-down">0.0 m</dd>
+          <dt><i class="dot bw"></i>Boat speed rel. water</dt><dd id="hud-vbw">—</dd>
+          <dt><i class="dot wg"></i>River speed</dt><dd id="hud-vwg">—</dd>
+          <dt><i class="dot bg"></i>Actual ground speed</dt><dd id="hud-vbg">—</dd>
+          <dt>Remaining distance</dt><dd id="hud-remaining">—</dd>
+        </dl>
+        <div class="progress" aria-hidden="true"><span id="hud-progress"></span></div>
+      </div>
+
+      <!-- Live vector equation -->
+      <div class="hud hud-equation glass" id="hud-equation" aria-live="off"></div>
+
+      <!-- Camera controls -->
+      <div class="hud hud-camera" role="toolbar" aria-label="Camera">
+        <button class="btn glass small" id="cam-reset" title="Reset camera">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg><span>Reset Camera</span>
+        </button>
+        <button class="btn glass small" id="cam-3d" title="3D view (V)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.3L18.7 8 12 11.7 5.3 8 12 4.3zM5 9.7l6 3.3v6.6l-6-3.3V9.7zm8 9.9V13l6-3.3v6.6l-6 3.3z"/></svg><span>3D View</span>
+        </button>
+        <button class="btn glass small" id="cam-top" title="Top view (T)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 6h10v2H7v-2z"/></svg><span>Top View</span>
+        </button>
+        <button class="btn glass small" id="cam-follow" aria-pressed="false" title="Keep the boat centred">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 3h-2.1A7 7 0 0 0 13 5.1V3h-2v2.1A7 7 0 0 0 5.1 11H3v2h2.1a7 7 0 0 0 5.9 5.9V21h2v-2.1a7 7 0 0 0 5.9-5.9H21v-2z"/></svg><span>Follow</span>
+        </button>
+      </div>
+
+      <!-- Legend -->
+      <div class="hud hud-legend glass" id="hud-legend">
+        <details open>
+          <summary>Legend</summary>
+          <ul class="legend-list">
+            <li><i class="sw arrow bw"></i><span><b>V<sub>bw</sub></b> boat velocity rel. to water <em>(heading)</em></span></li>
+            <li><i class="sw arrow wg"></i><span><b>V<sub>wg</sub></b> river velocity rel. to ground</span></li>
+            <li><i class="sw arrow bg"></i><span><b>V<sub>bg</sub></b> resultant, boat rel. to ground</span></li>
+            <li><i class="sw arrow across"></i><span><b>V<sub>y</sub></b> across-river component</span></li>
+            <li><i class="sw line bg"></i><span>actual trajectory</span></li>
+            <li><i class="sw dash bg"></i><span>predicted trajectory</span></li>
+            <li><i class="sw dash bw"></i><span>boat-heading direction</span></li>
+          </ul>
+          <p class="legend-axes"><b>+x</b> downstream → &nbsp; <b>+y</b> across ↑ &nbsp; <span class="muted">θ measured from +x</span></p>
+        </details>
+      </div>
+
+      <!-- Playback controls -->
+      <div class="hud hud-playback glass" role="toolbar" aria-label="Playback">
+        <button class="btn icon" id="btn-reset" title="Reset simulation (R)" aria-label="Reset simulation">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="btn play" id="btn-play" title="Play / pause (Space)" aria-label="Play">
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <span class="label">Play</span>
+        </button>
+        <div class="speed-group" role="group" aria-label="Animation speed">
+          <span class="speed-icon" title="Animation speed (does not change the physics)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
+          </span>
+          <button class="speed" data-speed="0.25">0.25×</button>
+          <button class="speed" data-speed="0.5">0.5×</button>
+          <button class="speed active" data-speed="1">1×</button>
+          <button class="speed" data-speed="2">2×</button>
+          <button class="speed" data-speed="4">4×</button>
+        </div>
+      </div>
+
+      <!-- Banner for captions and prompts -->
+      <div class="banner glass" id="banner" hidden>
+        <div class="banner-text" id="banner-text"></div>
+        <div class="banner-actions" id="banner-actions"></div>
+      </div>
+
+      <!-- Learning mode card -->
+      <div class="learning-card glass" id="learning-card" hidden>
+        <div class="learning-head">
+          <span class="learning-kicker"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 1 9l11 6 9-4.9V17h2V9L12 3z"/></svg> Learning Mode · <span id="learn-progress"></span></span>
+          <button class="btn icon ghost" id="learn-close" aria-label="Close learning mode">✕</button>
+        </div>
+        <h3 id="learn-title"></h3>
+        <p id="learn-text"></p>
+        <div class="learn-eq" id="learn-eq"></div>
+        <div class="learning-foot">
+          <div class="dots" id="learn-dots"></div>
+          <div class="learn-buttons">
+            <button class="btn small" id="learn-prev">← Previous</button>
+            <button class="btn small primary" id="learn-next">Next →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Crossing result -->
+      <div class="result-card glass" id="result-card" hidden role="dialog" aria-labelledby="result-title">
+        <h3 id="result-title">Crossing completed ✓</h3>
+        <div id="result-rows" class="result-rows"></div>
+        <div id="result-comparison" class="result-comparison"></div>
+        <p id="result-note" class="result-note"></p>
+        <div class="result-actions">
+          <button class="btn small" id="result-close">Close</button>
+          <button class="btn small primary" id="result-replay">↻ Run again</button>
+        </div>
+      </div>
+
+      <div class="load-error glass" id="load-error" hidden>
+        <h3>Could not load the 3D libraries</h3>
+        <p>This page loads Three.js and KaTeX from a CDN. Please check your internet connection and reload.</p>
+      </div>
+    </section>
+
+    <!-- ================================================================ Side panels -->
+    <div class="side-stack">
+      <aside class="panel controls-panel" id="controls-panel" aria-label="Controls">
+        <section class="card">
+          <h2>Scenario</h2>
+          <div class="case-grid">
+            <button class="case-btn active" data-case="perpendicular"><span class="case-num">1</span><span class="case-name">Point straight across</span></button>
+            <button class="case-btn" data-case="shortest"><span class="case-num">2</span><span class="case-name">Shortest time</span></button>
+            <button class="case-btn" data-case="opposite"><span class="case-num">3</span><span class="case-name">Reach directly opposite</span></button>
+            <button class="case-btn" data-case="custom"><span class="case-num">4</span><span class="case-name">User defined</span></button>
+          </div>
+          <div class="case-info" id="case-info"></div>
+        </section>
+
+        <section class="card">
+          <h2>Parameters</h2>
+
+          <div class="param">
+            <div class="param-head">
+              <label for="in-width">River width <i>W</i></label>
+              <span class="num"><input type="number" id="num-width" inputmode="decimal" aria-label="River width in metres"><span class="unit">m</span></span>
+            </div>
+            <input type="range" id="in-width" class="slider neutral">
+            <div class="range-ends"><span>20 m</span><span>500 m</span></div>
+          </div>
+
+          <div class="param">
+            <div class="param-head">
+              <label for="in-river"><i class="dot wg"></i>River current&nbsp;<i>u</i></label>
+              <span class="num"><input type="number" id="num-river" inputmode="decimal" aria-label="River speed in metres per second"><span class="unit">m/s</span></span>
+            </div>
+            <input type="range" id="in-river" class="slider wg">
+            <div class="range-ends"><span>0</span><span>10 m/s</span></div>
+          </div>
+
+          <div class="param">
+            <div class="param-head">
+              <label for="in-boat"><i class="dot bw"></i>Boat speed (rel. water)&nbsp;<i>v</i></label>
+              <span class="num"><input type="number" id="num-boat" inputmode="decimal" aria-label="Boat speed relative to water in metres per second"><span class="unit">m/s</span></span>
+            </div>
+            <input type="range" id="in-boat" class="slider bw">
+            <div class="range-ends"><span>0</span><span>15 m/s</span></div>
+          </div>
+
+          <div class="param heading-param">
+            <div class="param-head">
+              <label for="in-heading">Boat heading <i>θ</i></label>
+              <span class="num"><input type="number" id="num-heading" inputmode="decimal" aria-label="Heading angle in degrees"><span class="unit">°</span></span>
+            </div>
+            <svg id="heading-dial" class="heading-dial" viewBox="0 0 240 165" role="img" aria-label="Drag to rotate the boat heading"></svg>
+            <input type="range" id="in-heading" class="slider bw">
+            <div class="range-ends"><span>0° downstream</span><span>180° upstream</span></div>
+            <div class="heading-row">
+              <span class="heading-description" id="heading-description">pointing straight across</span>
+              <span class="nudges">
+                <button class="btn tiny" data-heading-nudge="-5" title="Rotate 5° downstream">−5°</button>
+                <button class="btn tiny" data-heading-nudge="-1" title="Rotate 1° downstream">−1°</button>
+                <button class="btn tiny" data-heading-nudge="1" title="Rotate 1° upstream">+1°</button>
+                <button class="btn tiny" data-heading-nudge="5" title="Rotate 5° upstream">+5°</button>
+              </span>
+            </div>
+            <p class="hint">Drag the dial. The <span class="c-bw">orange</span> line is where the boat <b>points</b>; the <span class="c-bg">pink</span> line is where it actually <b>moves</b>.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Display</h2>
+          <div class="toggle-grid">
+            <label class="toggle"><input type="checkbox" id="tg-vectors"><span class="switch"></span>Show velocity vectors</label>
+            <label class="toggle"><input type="checkbox" id="tg-components"><span class="switch"></span>Show vector components</label>
+            <label class="toggle"><input type="checkbox" id="tg-triangle"><span class="switch"></span>Show vector triangle</label>
+            <label class="toggle"><input type="checkbox" id="tg-trajectory"><span class="switch"></span>Show trajectory</label>
+            <label class="toggle"><input type="checkbox" id="tg-predicted"><span class="switch"></span>Show predicted path</label>
+            <label class="toggle"><input type="checkbox" id="tg-heading"><span class="switch"></span>Show heading direction</label>
+            <label class="toggle"><input type="checkbox" id="tg-axes"><span class="switch"></span>Show coordinate system</label>
+            <label class="toggle"><input type="checkbox" id="tg-equations"><span class="switch"></span>Show equations</label>
+            <label class="toggle"><input type="checkbox" id="tg-labels"><span class="switch"></span>Show labels</label>
+            <label class="toggle"><input type="checkbox" id="tg-particles"><span class="switch"></span>Show water particles</label>
+            <label class="toggle"><input type="checkbox" id="tg-grid"><span class="switch"></span>Show grid</label>
+          </div>
+          <p class="hint kbd-hint"><kbd>Space</kbd> play/pause · <kbd>R</kbd> reset · <kbd>T</kbd> top view · <kbd>V</kbd> 3D view</p>
+        </section>
+      </aside>
+
+      <aside class="panel math-panel" id="math-panel" aria-label="Live vector mathematics">
+        <section class="card math-card">
+          <h2>Live Vector Mathematics</h2>
+          <p class="math-intro">Coordinates: <b>+x</b> downstream, <b>+y</b> across. Every value updates as you move a control.</p>
+          <div id="math-content" class="math-content"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Libraries (classic scripts so the page also works when opened from disk) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS2DRenderer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+  <!-- Application modules -->
+  <script src="js/physics.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/vectors.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/learning.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
